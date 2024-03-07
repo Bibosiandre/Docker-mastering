@@ -1,0 +1,78 @@
+version: '3'
+
+services:
+  frontend:
+    build: ./frontend
+    container_name: docker-mastering-frontend
+    command: serve -s build -l 3000
+    restart: unless-stopped
+    #ports:
+    #   - "3000:3000"
+    environment:
+        - CHOKIDAR_USEPOLLING=true
+    networks:
+        - docker-mastering-network
+  api:
+    build: ./api
+    container_name: docker-mastering-api
+    command: npm run start
+    restart: unless-stopped
+    ports:
+        - "3001:3001"
+    environment:
+        - PORT=3001
+        - HOST=http://docker-mastering.ru
+        - MONGO_URL=mongodb://api_db:27017/api
+        - AUTH_API_URL=http://auth:3002/api
+    depends_on:
+        - api_db
+    networks:
+        - docker-mastering-network
+  auth:
+    build: ./auth
+    container_name: docker-mastering-auth
+    command: npm run start
+    restart: unless-stopped
+    ports:
+        - "3002:3002"
+    environment:
+        - PORT=3002
+        - HOST=http://docker-mastering.ru
+        - MONGO_URL=mongodb://api_db:27017/auth
+        - API_URL=http://api:3001/api
+    depends_on:
+        - auth_db
+    networks:
+        - docker-mastering-network
+  api_db:
+    image: mongo:7.0
+    container_name: docker-mastering-api-db
+    volumes:
+        - mongodb_api:/data/db
+    networks:
+        - docker-mastering-network
+  auth_db:
+    image: mongo:7.0
+    container_name: docker-mastering-auth-db
+    volumes:
+        - mongodb_auth:/data/db
+    networks:
+        - docker-mastering-network
+  nginx:
+    image: nginx:alpine-perl
+    container_name: docker-mastering-nginx
+    ports:
+        - "80:80"
+    volumes:
+        - ./nginx/nginx.conf.prod:/etc/nginx/conf.d/nginx.conf
+    depends_on:
+        - frontend
+    networks:
+        - docker-mastering-network
+volumes:
+    mongodb_api:
+    mongodb_auth:
+
+networks:
+    docker-mastering-network:
+        driver: bridge
